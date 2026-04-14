@@ -4,218 +4,177 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for your GitHub Pages domain
+// CORS - Allow GitHub Pages and local development
 app.use(cors({
-    origin: ['https://rawbeandr-eng.github.io', 'http://localhost:3000'],
+    origin: [
+        'https://rawbeandr-eng.github.io',
+        'http://localhost:3000',
+        'http://127.0.0.1:5500',
+        'http://localhost:5500',
+        'https://*.trycloudflare.com'  // Allow any trycloudflare subdomain
+    ],
     credentials: true
 }));
 
 app.use(express.json());
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+// Create uploads directory
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+    console.log('✅ Created uploads directory:', uploadDir);
 }
 
-// Configure multer for file uploads
+// File storage configuration
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
+    destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => {
-        // Generate unique filename while preserving original name in metadata
-        const uniqueId = crypto.randomBytes(16).toString('hex');
-        const ext = path.extname(file.originalname);
-        cb(null, `${uniqueId}${ext}`);
+        const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
     }
 });
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
-    fileFilter: (req, file, cb) => {
-        // Accept all file types
-        cb(null, true);
-    }
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB
 });
 
-// In-memory user store (use proper DB in production)
-const VALID_USERNAME = 'abcd';
-const VALID_PASSWORD = '1234';
+// File metadata storage
+const metadataFile = path.join(__dirname, 'files-metadata.json');
+let fileMetadata = [];
 
-// File metadata store (use proper DB in production)
-let fileDatabase = [];
-
-// Load existing files on startup
-const metadataPath = path.join(__dirname, 'metadata.json');
-if (fs.existsSync(metadataPath)) {
+if (fs.existsSync(metadataFile)) {
     try {
-        fileDatabase = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+        fileMetadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+        console.log(`📁 Loaded ${fileMetadata.length} existing files`);
     } catch (e) {
         console.error('Error loading metadata:', e);
     }
 }
 
 function saveMetadata() {
-    fs.writeFileSync(metadataPath, JSON.stringify(fileDatabase, null, 2));
+    fs.writeFileSync(metadataFile, JSON.stringify(fileMetadata, null, 2));
 }
 
-// Authentication middleware
-function authMiddleware(req, res, next) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).json({ error: 'No authorization header' });
-    }
+// Health check - FIXED VERSION
+app.get('/api/health', (req, res) => {
+    console.log('🏥 Health check requested');
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        files: fileMetadata.length,
+        server: 'FileShare Server',
+        version: '1.0.0'
+    });
+});
 
-    const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
-    const [username, password] = credentials.split(':');
-
-    if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-        next();
-    } else {
-        res.status(401).json({ error: 'Invalid credentials' });
-    }
-}
-
-// Login endpoint (returns token)
+// Login endpoint
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    console.log(`🔐 Login attempt for user: ${username}`);
 
-    if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-        // In production, use JWT or session tokens
-        res.json({
-            success: true,
-            token: Buffer.from(`${username}:${password}`).toString('base64')
-        });
+    if (username === 'abcd' && password === '1234') {
+        const token = crypto.randomBytes(32).toString('hex');
+        console.log('✅ Login successful');
+        res.json({ success: true, token });
     } else {
-        res.status(401).json({ success: false, error: 'Invalid credentials' });
+        console.log('❌ Login failed');
+        res.status(401).json({ error: 'Invalid credentials' });
     }
 });
 
-// Upload endpoint
-app.post('/api/upload', authMiddleware, upload.single('file'), (req, res) => {
+// Upload file
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    console.log('📤 Upload request received');
+
     if (!req.file) {
+        console.log('❌ No file in request');
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const fileData = {
-        id: crypto.randomBytes(16).toString('hex'),
-        originalName: req.file.originalname,
-        storedName: req.file.filename,
+        id: uuidv4(),
+        name: req.file.originalname,
         size: req.file.size,
-        mimetype: req.file.mimetype,
-        uploadDate: new Date().toISOString(),
-        path: req.file.path
+        type: req.file.mimetype,
+        path: req.file.filename,
+        date: new Date().toISOString()
     };
 
-    fileDatabase.push(fileData);
+    fileMetadata.push(fileData);
     saveMetadata();
 
-    res.json({
-        success: true,
-        file: {
-            id: fileData.id,
-            name: fileData.originalName,
-            size: fileData.size,
-            date: fileData.uploadDate
-        }
-    });
+    console.log(`✅ File uploaded: ${fileData.name} (${fileData.size} bytes)`);
+    res.json({ success: true, file: fileData });
 });
 
-// List files endpoint
-app.get('/api/files', authMiddleware, (req, res) => {
-    const files = fileDatabase.map(f => ({
-        id: f.id,
-        name: f.originalName,
-        size: f.size,
-        date: f.uploadDate,
-        type: f.mimetype
-    })).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    res.json({ files });
+// Get files
+app.get('/api/files', (req, res) => {
+    console.log(`📋 File list requested (${fileMetadata.length} files)`);
+    res.json({ files: fileMetadata });
 });
 
-// Download endpoint
-app.get('/api/download/:id', authMiddleware, (req, res) => {
-    const file = fileDatabase.find(f => f.id === req.params.id);
+// Download file
+app.get('/api/download/:id', (req, res) => {
+    const file = fileMetadata.find(f => f.id === req.params.id);
 
     if (!file) {
+        console.log(`❌ File not found: ${req.params.id}`);
         return res.status(404).json({ error: 'File not found' });
     }
 
-    // Check if file exists
-    if (!fs.existsSync(file.path)) {
-        return res.status(404).json({ error: 'File not found on server' });
+    const filePath = path.join(uploadDir, file.path);
+
+    if (!fs.existsSync(filePath)) {
+        console.log(`❌ File missing from disk: ${filePath}`);
+        return res.status(404).json({ error: 'File not found on disk' });
     }
 
-    // Set headers for download
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.originalName)}"`);
-    res.setHeader('Content-Type', file.mimetype || 'application/octet-stream');
-    res.setHeader('Content-Length', file.size);
-
-    // Stream file to client
-    const fileStream = fs.createReadStream(file.path);
-    fileStream.pipe(res);
-
-    fileStream.on('error', (err) => {
-        console.error('Stream error:', err);
-        res.status(500).json({ error: 'Error streaming file' });
-    });
+    console.log(`⬇️ Downloading: ${file.name}`);
+    res.download(filePath, file.name);
 });
 
-// Delete endpoint
-app.delete('/api/files/:id', authMiddleware, (req, res) => {
-    const index = fileDatabase.findIndex(f => f.id === req.params.id);
+// Delete file
+app.delete('/api/files/:id', (req, res) => {
+    const fileIndex = fileMetadata.findIndex(f => f.id === req.params.id);
 
-    if (index === -1) {
+    if (fileIndex === -1) {
+        console.log(`❌ File not found for deletion: ${req.params.id}`);
         return res.status(404).json({ error: 'File not found' });
     }
 
-    const file = fileDatabase[index];
+    const file = fileMetadata[fileIndex];
+    const filePath = path.join(uploadDir, file.path);
 
-    // Delete physical file
-    if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ Deleted file: ${file.name}`);
     }
 
-    // Remove from database
-    fileDatabase.splice(index, 1);
+    fileMetadata.splice(fileIndex, 1);
     saveMetadata();
 
     res.json({ success: true });
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
-});
-
-// Cleanup old files periodically (optional)
-setInterval(() => {
-    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const now = Date.now();
-
-    fileDatabase = fileDatabase.filter(file => {
-        const fileAge = now - new Date(file.uploadDate).getTime();
-        if (fileAge > maxAge) {
-            if (fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
-                console.log(`Cleaned up old file: ${file.originalName}`);
-            }
-            return false;
-        }
-        return true;
-    });
-
-    saveMetadata();
-}, 60 * 60 * 1000); // Check every hour
-
+// Start server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Upload directory: ${uploadsDir}`);
+    console.log(`
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║         🚀 FileShare Server is Running!                  ║
+║                                                          ║
+║         📍 Local:    http://localhost:${PORT}                ║
+║         📁 Uploads:  ${uploadDir}
+║         📊 Files:    ${fileMetadata.length} files stored
+║                                                          ║
+║         Press Ctrl+C to stop the server                  ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+    `);
 });
