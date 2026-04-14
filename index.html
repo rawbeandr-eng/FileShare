@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileShare - Secure File Transfer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        /* Login Section */
+        .login-section {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+
+        /* File Manager Section */
+        .file-manager {
+            display: none;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            background: #eef1ff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        .upload-area i {
+            font-size: 60px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-area h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .upload-area p {
+            color: #666;
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .file-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .file-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .file-details h4 {
+            color: #333;
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+
+        .file-details span {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-download {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: #229954;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .file-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+
+            .btn-small {
+                flex: 1;
+            }
+        }
+    </style>
+    <base target="_blank">
+</head>
+<body>
+<div class="container">
+    <div class="header" style="position: relative;">
+        <button class="logout-btn" onclick="logout()" style="display: none;" id="logoutBtn">Logout</button>
+        <h1>📁 FileShare</h1>
+        <p>Secure File Transfer & Storage</p>
+    </div>
+
+    <div class="content">
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <button class="btn" onclick="login()">Sign In</button>
+            <div class="error-message" id="errorMsg">Invalid credentials!</div>
+        </div>
+
+        <!-- File Manager Section -->
+        <div class="file-manager" id="fileManager">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div style="font-size: 60px; margin-bottom: 20px;">☁️</div>
+                <h3>Drop files here or click to upload</h3>
+                <p>Support for any file format & folders</p>
+                <input type="file" id="fileInput" multiple webkitdirectory directory onchange="handleFiles(this.files)">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <div class="file-list" id="fileList">
+                <div class="empty-state" id="emptyState">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                        <polyline points="13 2 13 9 20 9"></polyline>
+                    </svg>
+                    <h3>No files uploaded yet</h3>
+                    <p>Upload files to see them here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+        // Configuration
+        const VALID_USERNAME = 'abcd';
+        const VALID_PASSWORD = '1234';
+        const STORAGE_KEY = 'fileshare_data';
+
+        // State
+        let files = [];
+        let isAuthenticated = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if already logged in
+            if (localStorage.getItem('fileshare_auth') === 'true') {
+                showFileManager();
+            }
+
+            // Load saved files
+            loadFiles();
+
+            // Setup drag and drop
+            setupDragAndDrop();
+
+            // Enter key login
+            document.getElementById('password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+        });
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+                localStorage.setItem('fileshare_auth', 'true');
+                showFileManager();
+                errorMsg.style.display = 'none';
+            } else {
+                errorMsg.style.display = 'block';
+                document.getElementById('password').value = '';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('fileshare_auth');
+            location.reload();
+        }
+
+        function showFileManager() {
+            isAuthenticated = true;
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('fileManager').style.display = 'block';
+            document.getElementById('logoutBtn').style.display = 'block';
+            renderFileList();
+        }
+
+        function setupDragAndDrop() {
+            const uploadArea = document.getElementById('uploadArea');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => {
+                    uploadArea.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => {
+                    uploadArea.classList.remove('dragover');
+                }, false);
+            });
+
+            uploadArea.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(fileList) {
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+
+            progressBar.style.display = 'block';
+
+            Array.from(fileList).forEach((file, index) => {
+                setTimeout(() => {
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) {
+                        const fileData = {
+                            id: Date.now() + Math.random(),
+                            name: file.name,
+                            size: file.size,
+                            type: file.type || 'application/octet-stream',
+                            data: e.target.result,
+                            date: new Date().toLocaleString()
+                        };
+
+                        files.push(fileData);
+                        saveFiles();
+                        renderFileList();
+
+                        // Update progress
+                        const progress = ((index + 1) / fileList.length) * 100;
+                        progressFill.style.width = progress + '%';
+
+                        if (index === fileList.length - 1) {
+                            setTimeout(() => {
+                                progressBar.style.display = 'none';
+                                progressFill.style.width = '0%';
+                            }, 500);
+                        }
+                    };
+
+                    reader.readAsDataURL(file);
+                }, index * 100);
+            });
+        }
+
+        function renderFileList() {
+            const fileList = document.getElementById('fileList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (files.length === 0) {
+                fileList.innerHTML = '';
+                fileList.appendChild(emptyState);
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            fileList.innerHTML = '';
+
+            // Sort by date (newest first)
+            const sortedFiles = [...files].sort((a, b) => b.id - a.id);
+
+            sortedFiles.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+
+                const fileExt = file.name.split('.').pop().toUpperCase();
+                const fileSize = formatFileSize(file.size);
+
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-icon">${fileExt}</div>
+                        <div class="file-details">
+                            <h4>${escapeHtml(file.name)}</h4>
+                            <span>${fileSize} • ${file.date}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn-small btn-download" onclick="downloadFile('${file.id}')">Download</button>
+                        <button class="btn-small btn-delete" onclick="deleteFile('${file.id}')">Delete</button>
+                    </div>
+                `;
+
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        function downloadFile(fileId) {
+            const file = files.find(f => f.id == fileId);
+            if (!file) return;
+
+            const link = document.createElement('a');
+            link.href = file.data;
+            link.download = file.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function deleteFile(fileId) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                files = files.filter(f => f.id != fileId);
+                saveFiles();
+                renderFileList();
+            }
+        }
+
+        function saveFiles() {
+            // Using localStorage - in production, use a backend server
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+        }
+
+        function loadFiles() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                files = JSON.parse(stored);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
