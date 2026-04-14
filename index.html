@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileShare - Secure File Transfer</title>
+    <title>FileShare - Cross-Device File Transfer</title>
     <style>
         * {
             margin: 0;
@@ -48,6 +48,25 @@
         .header p {
             opacity: 0.9;
             font-size: 1.1em;
+        }
+
+        .server-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .server-status.online {
+            background: #27ae60;
+        }
+
+        .server-status.offline {
+            background: #e74c3c;
         }
 
         .content {
@@ -443,6 +462,29 @@
             to { transform: rotate(360deg); }
         }
 
+        .config-section {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .config-section input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .config-section label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .header h1 {
@@ -479,14 +521,20 @@
 <body>
 <div class="container">
     <div class="header">
+        <div class="server-status offline" id="serverStatus">● Server Offline</div>
         <button class="logout-btn" onclick="logout()" style="display: none;" id="logoutBtn">Logout</button>
         <h1>📁 FileShare</h1>
-        <p>Secure File Transfer & Storage</p>
+        <p>Cross-Device Secure File Transfer</p>
     </div>
 
     <div class="content">
         <!-- Login Section -->
         <div class="login-section" id="loginSection">
+            <div class="config-section">
+                <label for="serverUrl">Backend Server URL</label>
+                <input type="text" id="serverUrl" placeholder="https://your-server.onrender.com" value="">
+            </div>
+
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" placeholder="Enter username" autocomplete="off" value="">
@@ -502,21 +550,21 @@
         <!-- File Manager Section -->
         <div class="file-manager" id="fileManager">
             <div class="storage-info" id="storageInfo">
-                <span>Storage Used</span>
+                <span>Server Storage</span>
                 <div style="display: flex; align-items: center;">
-                    <span id="storageText">0 MB / 50 MB</span>
+                    <span id="storageText">Connected to Server</span>
                     <div class="storage-bar">
-                        <div class="storage-fill" id="storageFill" style="width: 0%"></div>
+                        <div class="storage-fill" id="storageFill" style="width: 100%"></div>
                     </div>
                 </div>
             </div>
 
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">☁️</div>
+                <div class="upload-icon">📦</div>
                 <h3>Drop files here or click to upload</h3>
-                <p>Support for Word, Excel, PDF, Images, Videos & more</p>
-                <div class="upload-limits">Max file size: 40MB per file</div>
-                <input type="file" id="fileInput" multiple webkitdirectory directory onchange="handleFiles(this.files)">
+                <p>Support for ZIP, Word, Excel, PDF, Images, Videos & more</p>
+                <div class="upload-limits">Max file size: 100MB per file • Cross-device access</div>
+                <input type="file" id="fileInput" multiple onchange="handleFiles(this.files)">
 
                 <div class="progress-container" id="progressContainer">
                     <div class="progress-bar">
@@ -546,120 +594,128 @@
         // Configuration
         const VALID_USERNAME = 'abcd';
         const VALID_PASSWORD = '1234';
-        const DB_NAME = 'FileShareDB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'files';
-        const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB
-        const MAX_STORAGE = 50 * 1024 * 1024; // 50MB
 
         // State
-        let db = null;
+        let API_URL = '';
+        let authToken = '';
         let files = [];
         let isAuthenticated = false;
-        let dbInitialized = false;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Clear any existing auth on fresh load for testing
-            // localStorage.removeItem('fileshare_auth');
+            // Load saved server URL
+            const savedUrl = localStorage.getItem('fileshare_server_url');
+            if (savedUrl) {
+                document.getElementById('serverUrl').value = savedUrl;
+                API_URL = savedUrl;
+                checkServerStatus();
+            }
 
-            // Initialize DB first
-            initDB().then(() => {
-                dbInitialized = true;
-                console.log('Database initialized successfully');
+            // Check if already logged in
+            const savedToken = localStorage.getItem('fileshare_token');
+            const savedServer = localStorage.getItem('fileshare_server_url');
+            if (savedToken && savedServer) {
+                authToken = savedToken;
+                API_URL = savedServer;
+                showFileManager();
+                loadFiles();
+            }
 
-                // Check if already logged in
-                if (localStorage.getItem('fileshare_auth') === 'true') {
-                    showFileManager();
-                }
-            }).catch(err => {
-                console.error('Database initialization failed:', err);
-                // Still allow login, will use memory storage as fallback
-                dbInitialized = true;
-            });
-
-            // Setup drag and drop
+            // Setup event listeners
             setupDragAndDrop();
 
-            // Enter key login
             document.getElementById('password').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') login();
             });
 
-            // Clear inputs on load
+            document.getElementById('serverUrl').addEventListener('change', (e) => {
+                API_URL = e.target.value.replace(/\/$/, ''); // Remove trailing slash
+                localStorage.setItem('fileshare_server_url', API_URL);
+                checkServerStatus();
+            });
+
+            // Clear inputs
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         });
 
-        // Initialize IndexedDB
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                if (!window.indexedDB) {
-                    console.warn('IndexedDB not supported, using fallback');
-                    resolve();
-                    return;
+        async function checkServerStatus() {
+            if (!API_URL) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/health`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+
+                const statusEl = document.getElementById('serverStatus');
+                if (response.ok) {
+                    statusEl.textContent = '● Server Online';
+                    statusEl.className = 'server-status online';
+                } else {
+                    throw new Error('Server error');
                 }
-
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-                request.onerror = () => {
-                    console.error('Database error:', request.error);
-                    reject(request.error);
-                };
-
-                request.onsuccess = () => {
-                    db = request.result;
-                    console.log('Database opened successfully');
-                    resolve();
-                };
-
-                request.onupgradeneeded = (event) => {
-                    console.log('Database upgrade needed');
-                    const database = event.target.result;
-                    if (!database.objectStoreNames.contains(STORE_NAME)) {
-                        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                        store.createIndex('date', 'date', { unique: false });
-                        console.log('Object store created');
-                    }
-                };
-            });
+            } catch (error) {
+                const statusEl = document.getElementById('serverStatus');
+                statusEl.textContent = '● Server Offline';
+                statusEl.className = 'server-status offline';
+            }
         }
 
-        function login() {
+        async function login() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
+            const serverUrl = document.getElementById('serverUrl').value.trim();
             const errorMsg = document.getElementById('errorMsg');
             const loginBtn = document.getElementById('loginBtn');
 
-            // Reset error
             errorMsg.textContent = '';
             errorMsg.classList.remove('show');
 
-            // Validation
+            if (!serverUrl) {
+                showError('Please enter the backend server URL');
+                return;
+            }
+
             if (!username || !password) {
                 showError('Please enter both username and password');
                 return;
             }
 
-            // Show loading
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = 'Signing in... <span class="loading-spinner"></span>';
+            API_URL = serverUrl.replace(/\/$/, '');
+            localStorage.setItem('fileshare_server_url', API_URL);
 
-            // Simulate slight delay for better UX
-            setTimeout(() => {
-                if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = 'Connecting... <span class="loading-spinner"></span>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('fileshare_token', authToken);
                     localStorage.setItem('fileshare_auth', 'true');
                     showFileManager();
-                    errorMsg.classList.remove('show');
+                    loadFiles();
+                    checkServerStatus();
                 } else {
-                    showError('Invalid username or password!');
-                    document.getElementById('password').value = '';
-                    document.getElementById('password').focus();
+                    showError(data.error || 'Invalid credentials or server error');
                 }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Cannot connect to server. Check URL and try again.');
+            }
 
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Sign In';
-            }, 500);
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign In';
         }
 
         function showError(message) {
@@ -669,7 +725,9 @@
         }
 
         function logout() {
+            localStorage.removeItem('fileshare_token');
             localStorage.removeItem('fileshare_auth');
+            authToken = '';
             location.reload();
         }
 
@@ -678,13 +736,6 @@
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('fileManager').style.display = 'block';
             document.getElementById('logoutBtn').style.display = 'block';
-
-            // Load files if DB is ready
-            if (dbInitialized) {
-                loadFiles().then(() => {
-                    renderFileList();
-                });
-            }
         }
 
         function setupDragAndDrop() {
@@ -740,45 +791,21 @@
             for (let i = 0; i < fileList.length; i++) {
                 const file = fileList[i];
 
-                // Check file size
-                if (file.size > MAX_FILE_SIZE) {
-                    showNotification(`File "${file.name}" is too large (max ${formatFileSize(MAX_FILE_SIZE)})`, 'error');
-                    errorCount++;
-                    processedFiles++;
-                    updateProgress();
-                    continue;
-                }
-
-                // Check total storage
-                const currentStorage = await getTotalStorageUsed();
-                if (currentStorage + file.size > MAX_STORAGE) {
-                    showNotification('Storage limit reached! Delete some files first.', 'error');
-                    errorCount++;
-                    processedFiles++;
-                    updateProgress();
-                    continue;
-                }
-
                 try {
                     await uploadFile(file);
                     successCount++;
                 } catch (error) {
                     console.error('Upload error:', error);
-                    showNotification(`Failed to upload "${file.name}"`, 'error');
+                    showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
                     errorCount++;
                 }
 
                 processedFiles++;
-                updateProgress();
-            }
-
-            function updateProgress() {
                 const progress = (processedFiles / totalFiles) * 100;
                 progressFill.style.width = progress + '%';
                 progressText.textContent = Math.round(progress) + '%';
             }
 
-            // Reset
             setTimeout(() => {
                 uploadArea.classList.remove('uploading');
                 progressContainer.style.display = 'none';
@@ -788,6 +815,7 @@
 
                 if (successCount > 0) {
                     showNotification(`Successfully uploaded ${successCount} file(s)`, 'success');
+                    loadFiles(); // Refresh list
                 }
                 if (errorCount > 0) {
                     showNotification(`${errorCount} file(s) failed to upload`, 'error');
@@ -796,80 +824,45 @@
         }
 
         async function uploadFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
+            const formData = new FormData();
+            formData.append('file', file);
 
-                reader.onload = async function(e) {
-                    try {
-                        const fileData = {
-                            id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                            name: file.name,
-                            size: file.size,
-                            type: file.type || 'application/octet-stream',
-                            data: e.target.result,
-                            date: new Date().toISOString(),
-                            lastModified: file.lastModified
-                        };
-
-                        // Store in IndexedDB if available
-                        if (db) {
-                            const transaction = db.transaction([STORE_NAME], 'readwrite');
-                            const store = transaction.objectStore(STORE_NAME);
-
-                            await new Promise((res, rej) => {
-                                const request = store.put(fileData);
-                                request.onsuccess = () => res();
-                                request.onerror = () => rej(request.error);
-                            });
-                        } else {
-                            // Fallback to memory
-                            files.push(fileData);
-                        }
-
-                        files.push(fileData);
-                        renderFileList();
-                        updateStorageInfo();
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-
-                reader.onerror = () => reject(reader.error);
-
-                // Read as data URL
-                reader.readAsDataURL(file);
+            const response = await fetch(`${API_URL}/api/upload`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${authToken}`
+                },
+                body: formData
             });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+
+            return response.json();
         }
 
         async function loadFiles() {
-            if (!db) {
-                console.warn('Database not available');
-                return;
-            }
+            try {
+                const response = await fetch(`${API_URL}/api/files`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Basic ${authToken}`
+                    }
+                });
 
-            return new Promise((resolve, reject) => {
-                try {
-                    const transaction = db.transaction([STORE_NAME], 'readonly');
-                    const store = transaction.objectStore(STORE_NAME);
-                    const request = store.getAll();
-
-                    request.onsuccess = () => {
-                        files = request.result.sort((a, b) => new Date(b.date) - new Date(a.date));
-                        renderFileList();
-                        updateStorageInfo();
-                        resolve();
-                    };
-
-                    request.onerror = () => {
-                        console.error('Failed to load files:', request.error);
-                        reject(request.error);
-                    };
-                } catch (error) {
-                    console.error('Transaction error:', error);
-                    reject(error);
+                if (!response.ok) {
+                    throw new Error('Failed to load files');
                 }
-            });
+
+                const data = await response.json();
+                files = data.files || [];
+                renderFileList();
+            } catch (error) {
+                console.error('Load files error:', error);
+                showNotification('Failed to load file list', 'error');
+            }
         }
 
         function renderFileList() {
@@ -912,21 +905,42 @@
         }
 
         async function downloadFile(fileId) {
-            const file = files.find(f => f.id === fileId);
-            if (!file) {
-                showNotification('File not found', 'error');
-                return;
-            }
-
             try {
+                const file = files.find(f => f.id === fileId);
+                if (!file) {
+                    showNotification('File not found', 'error');
+                    return;
+                }
+
+                showNotification(`Starting download for "${file.name}"...`, 'info');
+
+                const response = await fetch(`${API_URL}/api/download/${fileId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Basic ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+
+                // Get the blob from the response
+                const blob = await response.blob();
+
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
-                link.href = file.data;
+                link.href = url;
                 link.download = file.name;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showNotification(`Downloading "${file.name}"...`, 'info');
+                window.URL.revokeObjectURL(url);
+
+                showNotification(`Downloaded "${file.name}"`, 'success');
             } catch (error) {
+                console.error('Download error:', error);
                 showNotification('Download failed', 'error');
             }
         }
@@ -935,54 +949,23 @@
             if (!confirm('Are you sure you want to delete this file?')) return;
 
             try {
-                if (db) {
-                    const transaction = db.transaction([STORE_NAME], 'readwrite');
-                    const store = transaction.objectStore(STORE_NAME);
+                const response = await fetch(`${API_URL}/api/files/${fileId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Basic ${authToken}`
+                    }
+                });
 
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(fileId);
-                        request.onsuccess = () => resolve();
-                        request.onerror = () => reject(request.error);
-                    });
+                if (!response.ok) {
+                    throw new Error('Delete failed');
                 }
 
-                files = files.filter(f => f.id !== fileId);
-                renderFileList();
-                updateStorageInfo();
                 showNotification('File deleted successfully', 'success');
+                loadFiles(); // Refresh list
             } catch (error) {
+                console.error('Delete error:', error);
                 showNotification('Failed to delete file', 'error');
             }
-        }
-
-        async function getTotalStorageUsed() {
-            if (!db) return 0;
-
-            try {
-                const transaction = db.transaction([STORE_NAME], 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.getAll();
-
-                return new Promise((resolve) => {
-                    request.onsuccess = () => {
-                        const allFiles = request.result;
-                        const total = allFiles.reduce((sum, f) => sum + (f.size || 0), 0);
-                        resolve(total);
-                    };
-                    request.onerror = () => resolve(0);
-                });
-            } catch (error) {
-                return 0;
-            }
-        }
-
-        async function updateStorageInfo() {
-            const used = await getTotalStorageUsed();
-            const percentage = Math.min((used / MAX_STORAGE) * 100, 100);
-
-            document.getElementById('storageText').textContent =
-                `${formatFileSize(used)} / ${formatFileSize(MAX_STORAGE)}`;
-            document.getElementById('storageFill').style.width = percentage + '%';
         }
 
         function getFileExtension(filename) {
