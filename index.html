@@ -27,7 +27,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
             overflow: hidden;
         }
 
@@ -36,6 +36,7 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
 
         .header h1 {
@@ -103,8 +104,10 @@
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .btn:active {
-            transform: translateY(0);
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .error-message {
@@ -112,6 +115,21 @@
             text-align: center;
             margin-top: 15px;
             display: none;
+            padding: 12px;
+            background: #fee;
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
         }
 
         /* File Manager Section */
@@ -122,23 +140,28 @@
         .upload-area {
             border: 3px dashed #667eea;
             border-radius: 15px;
-            padding: 60px 40px;
+            padding: 50px 40px;
             text-align: center;
             background: #f8f9ff;
             transition: all 0.3s ease;
             cursor: pointer;
             margin-bottom: 30px;
+            position: relative;
         }
 
         .upload-area:hover, .upload-area.dragover {
             background: #eef1ff;
             border-color: #764ba2;
-            transform: scale(1.02);
+            transform: scale(1.01);
         }
 
-        .upload-area i {
+        .upload-area.uploading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .upload-icon {
             font-size: 60px;
-            color: #667eea;
             margin-bottom: 20px;
         }
 
@@ -150,6 +173,16 @@
 
         .upload-area p {
             color: #666;
+            margin-bottom: 15px;
+        }
+
+        .upload-limits {
+            font-size: 0.85em;
+            color: #999;
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: inline-block;
         }
 
         .upload-area input {
@@ -160,7 +193,7 @@
             background: #f8f9fa;
             border-radius: 15px;
             padding: 20px;
-            max-height: 400px;
+            max-height: 450px;
             overflow-y: auto;
         }
 
@@ -198,6 +231,7 @@
             align-items: center;
             gap: 15px;
             flex: 1;
+            min-width: 0;
         }
 
         .file-icon {
@@ -209,33 +243,45 @@
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 20px;
+            font-size: 12px;
             font-weight: bold;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .file-details {
+            min-width: 0;
+            flex: 1;
         }
 
         .file-details h4 {
             color: #333;
             margin-bottom: 5px;
             word-break: break-all;
+            font-size: 0.95em;
+            line-height: 1.3;
         }
 
         .file-details span {
             color: #666;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
 
         .file-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
         .btn-small {
-            padding: 8px 16px;
+            padding: 8px 14px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 600;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .btn-download {
@@ -245,6 +291,7 @@
 
         .btn-download:hover {
             background: #229954;
+            transform: translateY(-1px);
         }
 
         .btn-delete {
@@ -254,6 +301,7 @@
 
         .btn-delete:hover {
             background: #c0392b;
+            transform: translateY(-1px);
         }
 
         .logout-btn {
@@ -267,20 +315,28 @@
             border-radius: 25px;
             cursor: pointer;
             transition: all 0.3s;
+            font-weight: 600;
         }
 
         .logout-btn:hover {
             background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto 0;
+            display: none;
         }
 
         .progress-bar {
             width: 100%;
-            height: 4px;
+            height: 8px;
             background: #e0e0e0;
-            border-radius: 2px;
-            margin-top: 10px;
+            border-radius: 4px;
             overflow: hidden;
-            display: none;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .progress-fill {
@@ -288,11 +344,48 @@
             background: linear-gradient(90deg, #667eea, #764ba2);
             width: 0%;
             transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .storage-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .storage-bar {
+            width: 150px;
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-left: 10px;
+        }
+
+        .storage-fill {
+            height: 100%;
+            background: white;
+            border-radius: 3px;
+            transition: width 0.3s;
         }
 
         .empty-state {
             text-align: center;
-            padding: 40px;
+            padding: 50px 20px;
             color: #666;
         }
 
@@ -301,6 +394,53 @@
             height: 80px;
             margin-bottom: 20px;
             opacity: 0.3;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            max-width: 350px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #27ae60;
+        }
+
+        .notification.error {
+            background: #e74c3c;
+        }
+
+        .notification.info {
+            background: #3498db;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* Responsive */
@@ -327,13 +467,18 @@
             .btn-small {
                 flex: 1;
             }
+
+            .storage-info {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
         }
     </style>
-    <base target="_blank">
 </head>
 <body>
 <div class="container">
-    <div class="header" style="position: relative;">
+    <div class="header">
         <button class="logout-btn" onclick="logout()" style="display: none;" id="logoutBtn">Logout</button>
         <h1>📁 FileShare</h1>
         <p>Secure File Transfer & Storage</p>
@@ -344,25 +489,40 @@
         <div class="login-section" id="loginSection">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" placeholder="Enter username" autocomplete="off">
+                <input type="text" id="username" placeholder="Enter username" autocomplete="off" value="">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Enter password">
+                <input type="password" id="password" placeholder="Enter password" value="">
             </div>
-            <button class="btn" onclick="login()">Sign In</button>
-            <div class="error-message" id="errorMsg">Invalid credentials!</div>
+            <button class="btn" id="loginBtn" onclick="login()">Sign In</button>
+            <div class="error-message" id="errorMsg"></div>
         </div>
 
         <!-- File Manager Section -->
         <div class="file-manager" id="fileManager">
+            <div class="storage-info" id="storageInfo">
+                <span>Storage Used</span>
+                <div style="display: flex; align-items: center;">
+                    <span id="storageText">0 MB / 50 MB</span>
+                    <div class="storage-bar">
+                        <div class="storage-fill" id="storageFill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                <div style="font-size: 60px; margin-bottom: 20px;">☁️</div>
+                <div class="upload-icon">☁️</div>
                 <h3>Drop files here or click to upload</h3>
-                <p>Support for any file format & folders</p>
+                <p>Support for Word, Excel, PDF, Images, Videos & more</p>
+                <div class="upload-limits">Max file size: 40MB per file</div>
                 <input type="file" id="fileInput" multiple webkitdirectory directory onchange="handleFiles(this.files)">
-                <div class="progress-bar" id="progressBar">
-                    <div class="progress-fill" id="progressFill"></div>
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0%</div>
                 </div>
             </div>
 
@@ -380,25 +540,43 @@
     </div>
 </div>
 
+<div class="notification" id="notification"></div>
+
 <script>
         // Configuration
         const VALID_USERNAME = 'abcd';
         const VALID_PASSWORD = '1234';
-        const STORAGE_KEY = 'fileshare_data';
+        const DB_NAME = 'FileShareDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'files';
+        const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB
+        const MAX_STORAGE = 50 * 1024 * 1024; // 50MB
 
         // State
+        let db = null;
         let files = [];
         let isAuthenticated = false;
+        let dbInitialized = false;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Check if already logged in
-            if (localStorage.getItem('fileshare_auth') === 'true') {
-                showFileManager();
-            }
+            // Clear any existing auth on fresh load for testing
+            // localStorage.removeItem('fileshare_auth');
 
-            // Load saved files
-            loadFiles();
+            // Initialize DB first
+            initDB().then(() => {
+                dbInitialized = true;
+                console.log('Database initialized successfully');
+
+                // Check if already logged in
+                if (localStorage.getItem('fileshare_auth') === 'true') {
+                    showFileManager();
+                }
+            }).catch(err => {
+                console.error('Database initialization failed:', err);
+                // Still allow login, will use memory storage as fallback
+                dbInitialized = true;
+            });
 
             // Setup drag and drop
             setupDragAndDrop();
@@ -407,21 +585,87 @@
             document.getElementById('password').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') login();
             });
+
+            // Clear inputs on load
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
         });
 
+        // Initialize IndexedDB
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) {
+                    console.warn('IndexedDB not supported, using fallback');
+                    resolve();
+                    return;
+                }
+
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => {
+                    console.error('Database error:', request.error);
+                    reject(request.error);
+                };
+
+                request.onsuccess = () => {
+                    db = request.result;
+                    console.log('Database opened successfully');
+                    resolve();
+                };
+
+                request.onupgradeneeded = (event) => {
+                    console.log('Database upgrade needed');
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains(STORE_NAME)) {
+                        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        store.createIndex('date', 'date', { unique: false });
+                        console.log('Object store created');
+                    }
+                };
+            });
+        }
+
         function login() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMsg');
+            const loginBtn = document.getElementById('loginBtn');
 
-            if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-                localStorage.setItem('fileshare_auth', 'true');
-                showFileManager();
-                errorMsg.style.display = 'none';
-            } else {
-                errorMsg.style.display = 'block';
-                document.getElementById('password').value = '';
+            // Reset error
+            errorMsg.textContent = '';
+            errorMsg.classList.remove('show');
+
+            // Validation
+            if (!username || !password) {
+                showError('Please enter both username and password');
+                return;
             }
+
+            // Show loading
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = 'Signing in... <span class="loading-spinner"></span>';
+
+            // Simulate slight delay for better UX
+            setTimeout(() => {
+                if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+                    localStorage.setItem('fileshare_auth', 'true');
+                    showFileManager();
+                    errorMsg.classList.remove('show');
+                } else {
+                    showError('Invalid username or password!');
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
+                }
+
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Sign In';
+            }, 500);
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.classList.add('show');
         }
 
         function logout() {
@@ -434,7 +678,13 @@
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('fileManager').style.display = 'block';
             document.getElementById('logoutBtn').style.display = 'block';
-            renderFileList();
+
+            // Load files if DB is ready
+            if (dbInitialized) {
+                loadFiles().then(() => {
+                    renderFileList();
+                });
+            }
         }
 
         function setupDragAndDrop() {
@@ -471,44 +721,154 @@
             handleFiles(files);
         }
 
-        function handleFiles(fileList) {
-            const progressBar = document.getElementById('progressBar');
+        async function handleFiles(fileList) {
+            const uploadArea = document.getElementById('uploadArea');
+            const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
 
-            progressBar.style.display = 'block';
+            if (!fileList || fileList.length === 0) return;
 
-            Array.from(fileList).forEach((file, index) => {
-                setTimeout(() => {
-                    const reader = new FileReader();
+            uploadArea.classList.add('uploading');
+            progressContainer.style.display = 'block';
 
-                    reader.onload = function(e) {
+            const totalFiles = fileList.length;
+            let processedFiles = 0;
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < fileList.length; i++) {
+                const file = fileList[i];
+
+                // Check file size
+                if (file.size > MAX_FILE_SIZE) {
+                    showNotification(`File "${file.name}" is too large (max ${formatFileSize(MAX_FILE_SIZE)})`, 'error');
+                    errorCount++;
+                    processedFiles++;
+                    updateProgress();
+                    continue;
+                }
+
+                // Check total storage
+                const currentStorage = await getTotalStorageUsed();
+                if (currentStorage + file.size > MAX_STORAGE) {
+                    showNotification('Storage limit reached! Delete some files first.', 'error');
+                    errorCount++;
+                    processedFiles++;
+                    updateProgress();
+                    continue;
+                }
+
+                try {
+                    await uploadFile(file);
+                    successCount++;
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showNotification(`Failed to upload "${file.name}"`, 'error');
+                    errorCount++;
+                }
+
+                processedFiles++;
+                updateProgress();
+            }
+
+            function updateProgress() {
+                const progress = (processedFiles / totalFiles) * 100;
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+
+            // Reset
+            setTimeout(() => {
+                uploadArea.classList.remove('uploading');
+                progressContainer.style.display = 'none';
+                progressFill.style.width = '0%';
+                progressText.textContent = '0%';
+                document.getElementById('fileInput').value = '';
+
+                if (successCount > 0) {
+                    showNotification(`Successfully uploaded ${successCount} file(s)`, 'success');
+                }
+                if (errorCount > 0) {
+                    showNotification(`${errorCount} file(s) failed to upload`, 'error');
+                }
+            }, 500);
+        }
+
+        async function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = async function(e) {
+                    try {
                         const fileData = {
-                            id: Date.now() + Math.random(),
+                            id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                             name: file.name,
                             size: file.size,
                             type: file.type || 'application/octet-stream',
                             data: e.target.result,
-                            date: new Date().toLocaleString()
+                            date: new Date().toISOString(),
+                            lastModified: file.lastModified
                         };
 
-                        files.push(fileData);
-                        saveFiles();
-                        renderFileList();
+                        // Store in IndexedDB if available
+                        if (db) {
+                            const transaction = db.transaction([STORE_NAME], 'readwrite');
+                            const store = transaction.objectStore(STORE_NAME);
 
-                        // Update progress
-                        const progress = ((index + 1) / fileList.length) * 100;
-                        progressFill.style.width = progress + '%';
-
-                        if (index === fileList.length - 1) {
-                            setTimeout(() => {
-                                progressBar.style.display = 'none';
-                                progressFill.style.width = '0%';
-                            }, 500);
+                            await new Promise((res, rej) => {
+                                const request = store.put(fileData);
+                                request.onsuccess = () => res();
+                                request.onerror = () => rej(request.error);
+                            });
+                        } else {
+                            // Fallback to memory
+                            files.push(fileData);
                         }
+
+                        files.push(fileData);
+                        renderFileList();
+                        updateStorageInfo();
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+
+                reader.onerror = () => reject(reader.error);
+
+                // Read as data URL
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function loadFiles() {
+            if (!db) {
+                console.warn('Database not available');
+                return;
+            }
+
+            return new Promise((resolve, reject) => {
+                try {
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.getAll();
+
+                    request.onsuccess = () => {
+                        files = request.result.sort((a, b) => new Date(b.date) - new Date(a.date));
+                        renderFileList();
+                        updateStorageInfo();
+                        resolve();
                     };
 
-                    reader.readAsDataURL(file);
-                }, index * 100);
+                    request.onerror = () => {
+                        console.error('Failed to load files:', request.error);
+                        reject(request.error);
+                    };
+                } catch (error) {
+                    console.error('Transaction error:', error);
+                    reject(error);
+                }
             });
         }
 
@@ -525,22 +885,20 @@
 
             fileList.innerHTML = '';
 
-            // Sort by date (newest first)
-            const sortedFiles = [...files].sort((a, b) => b.id - a.id);
-
-            sortedFiles.forEach(file => {
+            files.forEach(file => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
 
-                const fileExt = file.name.split('.').pop().toUpperCase();
+                const fileExt = getFileExtension(file.name);
                 const fileSize = formatFileSize(file.size);
+                const fileDate = new Date(file.date).toLocaleString();
 
                 fileItem.innerHTML = `
                     <div class="file-info">
-                        <div class="file-icon">${fileExt}</div>
+                        <div class="file-icon" title="${file.type}">${fileExt}</div>
                         <div class="file-details">
                             <h4>${escapeHtml(file.name)}</h4>
-                            <span>${fileSize} • ${file.date}</span>
+                            <span>${fileSize} • ${fileDate}</span>
                         </div>
                     </div>
                     <div class="file-actions">
@@ -553,42 +911,91 @@
             });
         }
 
-        function downloadFile(fileId) {
-            const file = files.find(f => f.id == fileId);
-            if (!file) return;
+        async function downloadFile(fileId) {
+            const file = files.find(f => f.id === fileId);
+            if (!file) {
+                showNotification('File not found', 'error');
+                return;
+            }
 
-            const link = document.createElement('a');
-            link.href = file.data;
-            link.download = file.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                const link = document.createElement('a');
+                link.href = file.data;
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showNotification(`Downloading "${file.name}"...`, 'info');
+            } catch (error) {
+                showNotification('Download failed', 'error');
+            }
         }
 
-        function deleteFile(fileId) {
-            if (confirm('Are you sure you want to delete this file?')) {
-                files = files.filter(f => f.id != fileId);
-                saveFiles();
+        async function deleteFile(fileId) {
+            if (!confirm('Are you sure you want to delete this file?')) return;
+
+            try {
+                if (db) {
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(fileId);
+                        request.onsuccess = () => resolve();
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+
+                files = files.filter(f => f.id !== fileId);
                 renderFileList();
+                updateStorageInfo();
+                showNotification('File deleted successfully', 'success');
+            } catch (error) {
+                showNotification('Failed to delete file', 'error');
             }
         }
 
-        function saveFiles() {
-            // Using localStorage - in production, use a backend server
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+        async function getTotalStorageUsed() {
+            if (!db) return 0;
+
+            try {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                return new Promise((resolve) => {
+                    request.onsuccess = () => {
+                        const allFiles = request.result;
+                        const total = allFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+                        resolve(total);
+                    };
+                    request.onerror = () => resolve(0);
+                });
+            } catch (error) {
+                return 0;
+            }
         }
 
-        function loadFiles() {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                files = JSON.parse(stored);
-            }
+        async function updateStorageInfo() {
+            const used = await getTotalStorageUsed();
+            const percentage = Math.min((used / MAX_STORAGE) * 100, 100);
+
+            document.getElementById('storageText').textContent =
+                `${formatFileSize(used)} / ${formatFileSize(MAX_STORAGE)}`;
+            document.getElementById('storageFill').style.width = percentage + '%';
+        }
+
+        function getFileExtension(filename) {
+            const parts = filename.split('.');
+            if (parts.length === 1) return 'FILE';
+            const ext = parts.pop();
+            return ext.length > 4 ? ext.substring(0, 4) : ext;
         }
 
         function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
+            if (bytes === 0) return '0 B';
             const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const sizes = ['B', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
@@ -597,6 +1004,18 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+
+            setTimeout(() => notification.classList.add('show'), 10);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
         }
     </script>
 </body>
