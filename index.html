@@ -335,6 +335,7 @@
             cursor: pointer;
             transition: all 0.3s;
             font-weight: 600;
+            display: none;
         }
 
         .logout-btn:hover {
@@ -462,29 +463,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .config-section {
-            background: #f0f0f0;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        .config-section input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .config-section label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #555;
-            font-size: 0.9em;
-        }
-
         /* Responsive */
         @media (max-width: 600px) {
             .header h1 {
@@ -521,8 +499,8 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="server-status offline" id="serverStatus">● Server Offline</div>
-        <button class="logout-btn" onclick="logout()" style="display: none;" id="logoutBtn">Logout</button>
+        <div class="server-status offline" id="serverStatus">● Checking...</div>
+        <button class="logout-btn" onclick="logout()" id="logoutBtn">Logout</button>
         <h1>📁 FileShare</h1>
         <p>Cross-Device Secure File Transfer</p>
     </div>
@@ -530,11 +508,6 @@
     <div class="content">
         <!-- Login Section -->
         <div class="login-section" id="loginSection">
-            <div class="config-section">
-                <label for="serverUrl">Backend Server URL</label>
-                <input type="text" id="serverUrl" placeholder="https://your-server.onrender.com" value="">
-            </div>
-
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" placeholder="Enter username" autocomplete="off" value="">
@@ -591,32 +564,29 @@
 <div class="notification" id="notification"></div>
 
 <script>
-        // Configuration
+        // ==========================================
+        // HARDCODED CONFIGURATION - Works on all devices!
+        // ==========================================
+        const API_URL = 'https://fileshare-nl0g.onrender.com'; // Your Render server
+
+        // Credentials
         const VALID_USERNAME = 'abcd';
         const VALID_PASSWORD = '1234';
 
         // State
-        let API_URL = '';
         let authToken = '';
         let files = [];
         let isAuthenticated = false;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Load saved server URL
-            const savedUrl = localStorage.getItem('fileshare_server_url');
-            if (savedUrl) {
-                document.getElementById('serverUrl').value = savedUrl;
-                API_URL = savedUrl;
-                checkServerStatus();
-            }
+            // Check server status immediately
+            checkServerStatus();
 
             // Check if already logged in
             const savedToken = localStorage.getItem('fileshare_token');
-            const savedServer = localStorage.getItem('fileshare_server_url');
-            if (savedToken && savedServer) {
+            if (savedToken) {
                 authToken = savedToken;
-                API_URL = savedServer;
                 showFileManager();
                 loadFiles();
             }
@@ -628,20 +598,12 @@
                 if (e.key === 'Enter') login();
             });
 
-            document.getElementById('serverUrl').addEventListener('change', (e) => {
-                API_URL = e.target.value.replace(/\/$/, ''); // Remove trailing slash
-                localStorage.setItem('fileshare_server_url', API_URL);
-                checkServerStatus();
-            });
-
             // Clear inputs
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         });
 
         async function checkServerStatus() {
-            if (!API_URL) return;
-
             try {
                 const response = await fetch(`${API_URL}/api/health`, {
                     method: 'GET',
@@ -665,25 +627,16 @@
         async function login() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            const serverUrl = document.getElementById('serverUrl').value.trim();
             const errorMsg = document.getElementById('errorMsg');
             const loginBtn = document.getElementById('loginBtn');
 
             errorMsg.textContent = '';
             errorMsg.classList.remove('show');
 
-            if (!serverUrl) {
-                showError('Please enter the backend server URL');
-                return;
-            }
-
             if (!username || !password) {
                 showError('Please enter both username and password');
                 return;
             }
-
-            API_URL = serverUrl.replace(/\/$/, '');
-            localStorage.setItem('fileshare_server_url', API_URL);
 
             loginBtn.disabled = true;
             loginBtn.innerHTML = 'Connecting... <span class="loading-spinner"></span>';
@@ -702,16 +655,14 @@
                 if (response.ok && data.success) {
                     authToken = data.token;
                     localStorage.setItem('fileshare_token', authToken);
-                    localStorage.setItem('fileshare_auth', 'true');
                     showFileManager();
                     loadFiles();
-                    checkServerStatus();
                 } else {
-                    showError(data.error || 'Invalid credentials or server error');
+                    showError(data.error || 'Invalid credentials');
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                showError('Cannot connect to server. Check URL and try again.');
+                showError('Cannot connect to server. Please try again later.');
             }
 
             loginBtn.disabled = false;
@@ -726,7 +677,6 @@
 
         function logout() {
             localStorage.removeItem('fileshare_token');
-            localStorage.removeItem('fileshare_auth');
             authToken = '';
             location.reload();
         }
@@ -796,7 +746,7 @@
                     successCount++;
                 } catch (error) {
                     console.error('Upload error:', error);
-                    showNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
+                    showNotification(`Failed to upload "${file.name}"`, 'error');
                     errorCount++;
                 }
 
@@ -815,7 +765,7 @@
 
                 if (successCount > 0) {
                     showNotification(`Successfully uploaded ${successCount} file(s)`, 'success');
-                    loadFiles(); // Refresh list
+                    loadFiles();
                 }
                 if (errorCount > 0) {
                     showNotification(`${errorCount} file(s) failed to upload`, 'error');
@@ -912,7 +862,7 @@
                     return;
                 }
 
-                showNotification(`Starting download for "${file.name}"...`, 'info');
+                showNotification(`Downloading "${file.name}"...`, 'info');
 
                 const response = await fetch(`${API_URL}/api/download/${fileId}`, {
                     method: 'GET',
@@ -925,10 +875,7 @@
                     throw new Error('Download failed');
                 }
 
-                // Get the blob from the response
                 const blob = await response.blob();
-
-                // Create download link
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -961,7 +908,7 @@
                 }
 
                 showNotification('File deleted successfully', 'success');
-                loadFiles(); // Refresh list
+                loadFiles();
             } catch (error) {
                 console.error('Delete error:', error);
                 showNotification('Failed to delete file', 'error');
